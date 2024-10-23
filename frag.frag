@@ -2,18 +2,22 @@
 precision mediump float;
 #endif
 
+// DEFINE CONSTANTS
+#define K 0.142857142857
+#define K2 0.0714285714285
+#define jitter 0.8
+
+// UNIFORMS
 uniform float u_time;
 uniform float u_aspectRatio;
-uniform vec2 u_mouse;             // MOUSE POSITION
-uniform sampler2D u_photocopyTexture; // SCREEN BLEND
-uniform sampler2D u_paperTexture;     // MULTIPLY BLEND
-uniform float u_textureScale;         // TEXTURE SCALE
+uniform vec2 u_mouse;
+uniform sampler2D u_photocopyTexture;
+uniform sampler2D u_paperTexture;
+uniform float u_textureScale;
+uniform vec3 u_bgColor;        // BACKGROUND COLOR
+uniform vec3 u_stippleColor;   // STIPPLE COLOR
 
 varying vec2 vTexCoord;
-
-// COLORS
-vec3 bgColor = vec3(0.459, 0.592, 0.914);    // BACKGROUND COLOR
-vec3 stippleColor = vec3(1.0, 0.992, 0.961); // STIPPLE COLOR
 
 // PERMUTE FUNCTION
 vec4 permute(vec4 x) {
@@ -22,9 +26,6 @@ vec4 permute(vec4 x) {
 
 // CELLULAR NOISE
 vec2 cellular2x2(vec2 P) {
-  #define K 0.142857142857
-  #define K2 0.0714285714285
-  #define jitter 0.8
   vec2 Pi = mod(floor(P), 289.0);
   vec2 Pf = fract(P);
   vec4 Pfx = Pf.x + vec4(-0.5, -1.5, -0.5, -1.5);
@@ -46,8 +47,10 @@ vec2 cellular2x2(vec2 P) {
 
 // RANDOM FUNCTION
 vec2 random2(vec2 p) {
-  return fract(sin(vec2(dot(p, vec2(127.1, 311.7)),
-                        dot(p, vec2(269.5, 183.3)))) * 43758.5453);
+  return fract(sin(vec2(
+    dot(p, vec2(127.1, 311.7)),
+    dot(p, vec2(269.5, 183.3))
+  )) * 43758.5453);
 }
 
 void main() {
@@ -62,7 +65,6 @@ void main() {
   vec2 f_st = fract(st);
 
   float m_dist = 1.0;
-
   vec2 closestPoint;
   vec2 closestNeighbor;
 
@@ -74,6 +76,7 @@ void main() {
       point = 0.5 + 0.5 * sin(u_time + 6.2831 * point);
       vec2 diff = neighbor + point - f_st;
       float dist = length(diff);
+
       if (dist < m_dist) {
         m_dist = dist;
         closestPoint = point;
@@ -100,8 +103,8 @@ void main() {
   // CELL MASK
   float cellMask = smoothstep(0.02, 0.05, m_dist);
 
-  // COMBINE COLORS
-  vec3 color = mix(bgColor, stippleColor, stipple * cellMask);
+  // COMBINE COLORS USING UNIFORMS
+  vec3 color = mix(u_bgColor, u_stippleColor, stipple * cellMask);
 
   // TEXTURE COORDS
   vec2 texCoords = vTexCoord * u_textureScale;
@@ -119,10 +122,10 @@ void main() {
   color = mix(color, multiplyBlend, paperOpacity);
 
   // BLOOM COLOR
-  vec3 bloomColor = vec3(0.459, 0.592, 0.914); // BLOOM COLOR
+  vec3 bloomColor = u_bgColor; // USE BACKGROUND COLOR FOR BLOOM
 
   // ADD BLOOM EFFECT
-  float bloomIntensity = .15; // BLOOM INTENSITY
+  float bloomIntensity = 0.05; // BLOOM INTENSITY
   color += bloomIntensity * bloomColor * color;
 
   gl_FragColor = vec4(color, 1.0);
